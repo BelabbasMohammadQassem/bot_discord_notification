@@ -15,6 +15,7 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 SALON_SURVEILLE_ID = 1102350490416709672
 LOGICIEL_CHANNEL_ID = 1310765800835256350
 MATERIEL_CHANNEL_ID = 697726206891655168
+AUTRES_CHANNEL_ID = 123456789  # Remplace par l'ID réel du salon "autres"
 
 # Mots et expressions pour détecter les demandes d'aide
 MOTS_AIDE = [
@@ -62,7 +63,7 @@ async def on_message(message):
         
         # Vérifier si c'est une demande d'aide
         if contient_demande_aide(contenu):
-            response = f"{message.author.mention}, j'ai détecté que vous avez besoin d'aide. Merci de poster votre demande dans <#{LOGICIEL_CHANNEL_ID}> ou <#{MATERIEL_CHANNEL_ID}>."
+            response = "👋 Poste ta question dans <#{0}> (logiciels), <#{1}> (matériel) ou <#{2}> (autres)".format(LOGICIEL_CHANNEL_ID, MATERIEL_CHANNEL_ID, AUTRES_CHANNEL_ID)
             await message.reply(response)
     
     await bot.process_commands(message)
