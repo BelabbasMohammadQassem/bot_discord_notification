@@ -108,9 +108,9 @@ async def on_message(message):
         # Répondre si c'est une question ou une demande d'aide
         if est_question or est_demande_aide:
             if est_question:
-                response = f"{message.author.mention}, merci d'utiliser les salons <#{LOGICIEL_CHANNEL_ID}> (logiciel) ou <#{MATERIEL_CHANNEL_ID}> (matériel) pour vos questions."
+                response = f"{message.author.mention}, merci d'utiliser les salons <#{LOGICIEL_CHANNEL_ID}>  ou <#{MATERIEL_CHANNEL_ID}> pour vos questions."
             else:
-                response = f"{message.author.mention}, j'ai détecté que vous avez besoin d'aide. Merci de poster votre demande dans <#{LOGICIEL_CHANNEL_ID}> (pour les problèmes logiciels) ou <#{MATERIEL_CHANNEL_ID}> (pour les problèmes matériels)."
+                response = f"{message.author.mention}, j'ai détecté que vous avez besoin d'aide. Merci de poster votre demande dans <#{LOGICIEL_CHANNEL_ID}> ou <#{MATERIEL_CHANNEL_ID}>."
             
             await message.reply(response)
     
