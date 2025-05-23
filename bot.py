@@ -12,10 +12,10 @@ intents.message_content = True
 bot = commands.Bot(command_prefix='!', intents=intents)
 
 # IDs des salons
-SALON_SURVEILLE_ID = 1102350490416709672
-LOGICIEL_CHANNEL_ID = 1310765800835256350
-MATERIEL_CHANNEL_ID = 697726206891655168
-AUTRES_CHANNEL_ID = 1313130476093046835
+SALON_SURVEILLE_ID = 1298590278000574466
+LOGICIEL_CHANNEL_ID = 1374028613447319662
+MATERIEL_CHANNEL_ID = 1374028502172565766
+AUTRES_CHANNEL_ID = 1375594367615766682
 
 # Mots et expressions pour détecter les demandes d'aide
 MOTS_AIDE = [
@@ -30,8 +30,8 @@ MOTS_AIDE = [
     "can't", "cant", "unable to", "help me", "anyone know", "quelqu'un sait"
 ]
 
-# Dictionnaire pour stocker les timestamps des réponses par utilisateur
-user_responses = {}
+# Dictionnaire pour stocker le dernier timestamp de réponse par utilisateur
+last_response_time = {}
 
 def contient_demande_aide(texte):
     """Vérifie si le texte contient des mots ou expressions liés à une demande d'aide."""
@@ -69,21 +69,15 @@ async def on_message(message):
         if contient_demande_aide(contenu):
             current_time = time.time()
             
-            # Nettoyer les anciennes entrées (plus d'une minute)
-            if user_id in user_responses:
-                user_responses[user_id] = [t for t in user_responses[user_id] if current_time - t < 60]
-            else:
-                user_responses[user_id] = []
-                
-            # Vérifier si l'utilisateur a déjà reçu 2 réponses dans la dernière minute
-            if len(user_responses[user_id]) < 2:
+            # Vérifier si l'utilisateur a déjà reçu une réponse dans les 5 dernières minutes
+            if user_id not in last_response_time or (current_time - last_response_time[user_id]) >= 300:  # 300 secondes = 5 minutes
                 response = "👋 Poste ta question dans <#{0}>, <#{1}> ou <#{2}>".format(
                     LOGICIEL_CHANNEL_ID, MATERIEL_CHANNEL_ID, AUTRES_CHANNEL_ID
                 )
                 await message.reply(response)
                 
                 # Enregistrer le timestamp de cette réponse
-                user_responses[user_id].append(current_time)
+                last_response_time[user_id] = current_time
     
     await bot.process_commands(message)
 
