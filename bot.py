@@ -3,7 +3,7 @@ from discord.ext import commands
 import os
 import dotenv
 import time
-import difflib
+import re
 
 dotenv.load_dotenv()
 
@@ -18,52 +18,82 @@ LOGICIEL_CHANNEL_ID = 1310765800835256350
 MATERIEL_CHANNEL_ID = 697726206891655168
 AUTRES_CHANNEL_ID = 1313130476093046835
 
-# Mots et expressions pour détecter les demandes d'aide
+# Mots et expressions qui indiquent clairement une demande d'aide
+MOTS_AIDE_STRICTS = [
+    "aidez-moi", "j'ai besoin d'aide", "je ne sais pas comment", "comment faire pour",
+    "quelqu'un peut m'aider", "help me", "need help", "j'ai un problème avec",
+    "je n'arrive pas à", "je ne parviens pas à", "ça ne marche pas", "ca marche pas",
+    "comment je peux", "savez-vous comment", "quelqu'un sait comment", "je suis bloqué sur",
+    "je suis coincé", "j'ai une erreur", "ça bug", "ca bug", "ne fonctionne plus",
+    "impossible de", "comment résoudre", "j'ai essayé mais", "quelqu'un pour m'aider"
+]
+
+# Mots indicateurs de demande d'aide potentielle (nécessitent confirmation par le contexte)
 MOTS_AIDE = [
-    "aide", "aider", "aidez", "help", "besoin", "problème", "probleme", "problèm", "problém", "problàme",
-    "probleme", "problèmes", "problemes", "pb", "bug", "erreur", "error", "ne fonctionne pas", 
-    "marche pas", "ne marche pas", "ne parviens pas", "bloqué", "bloque", "coincé", "solution", 
-    "résoudre", "résolu", "resoudre", "réglé", "reglé", "comprends pas", "comprend pas", 
-    "soutien", "support", "dépanner", "réparer", "répare", "galère", "galere", "impossible de", 
-    "difficulté", "difficulte", "souci", "préoccupation", "assistance", "secours", 
-    "rencontre un problème", "rencontre un probleme", "cherche une solution", 
-    "à l'aide", "a l'aide", "issue", "troubleshoot", "fix", "broken", "stuck", 
-    "struggle", "struggling", "can't", "cant", "unable to", "help me", "anyone know", 
-    "quelqu'un sait", "beug", "bugg"
+    "aide", "aider", "help", "problème", "probleme", "bug", "erreur", "error",
+    "bloqué", "coincé", "solution", "résoudre", "comprends pas", "comprend pas",
+    "soutien", "support", "dépanner", "réparer", "galère", "galere", "difficulté",
+    "difficulte", "souci", "assistance", "secours", "beug", "bugg"
+]
+
+# Expressions ou mots qui indiquent qu'il ne s'agit PAS d'une demande d'aide
+CONTEXTE_NON_AIDE = [
+    "pas de problème", "pas de souci", "pas besoin d'aide", "sans problème",
+    "sans souci", "aucun problème", "aucun souci", "c'est", "le but", "permet de",
+    "sert à", "fonction", "fonctionnalité", "pour", "afin de", "cela permet",
+    "explique", "montre", "présente", "démontre", "simule", "simulant", "en simulant"
+]
+
+# Mots indiquant un contexte informatif plutôt qu'une demande d'aide
+MOTS_CONTEXTE_INFORMATIF = [
+    "car", "parce que", "puisque", "c'est pour", "c'est un", "c'est une",
+    "il s'agit de", "cela signifie", "voici comment", "c'est ainsi que",
+    "fonctionne", "utiliser", "utilise", "usage", "but", "objectif",
+    "permet", "permettre", "pouvoir", "peut", "manière", "façon"
 ]
 
 # Dictionnaire pour stocker le dernier timestamp de réponse par utilisateur
 last_response_time = {}
 
-def mots_similaires(mot, liste_mots, seuil=0.85):
-    """Vérifie si un mot est similaire à l'un des mots de la liste avec un seuil donné."""
-    for mot_cible in liste_mots:
-        if len(mot) > 3 and len(mot_cible) > 3:  # Ignorer les mots trop courts
-            ratio = difflib.SequenceMatcher(None, mot, mot_cible).ratio()
-            if ratio >= seuil:
-                return True
-    return False
-
 def contient_demande_aide(texte):
-    """Vérifie si le texte contient des mots ou expressions liés à une demande d'aide, même avec des fautes."""
+    """Analyse sophistiquée pour déterminer si le message contient une réelle demande d'aide."""
     texte_lower = texte.lower()
     
-    # Vérifier les mots individuels
-    mots = texte_lower.split()
-    for mot in mots:
-        # Vérification exacte
-        if mot in MOTS_AIDE:
-            return True
-        
-        # Vérification de similarité pour les mots plus longs
-        if len(mot) > 3 and mots_similaires(mot, MOTS_AIDE):
+    # 1. Vérifier les expressions qui indiquent clairement une non-demande d'aide
+    for expression in CONTEXTE_NON_AIDE:
+        if expression in texte_lower:
+            return False
+    
+    # 2. Vérifier les expressions qui indiquent clairement une demande d'aide (priorité haute)
+    for expression in MOTS_AIDE_STRICTS:
+        if expression in texte_lower:
             return True
     
-    # Vérifier les expressions plus longues
-    for expression in MOTS_AIDE:
-        if " " in expression and expression in texte_lower:
-            return True
-            
+    # 3. Analyse de contexte informatif
+    mots_informatifs = sum(1 for mot in MOTS_CONTEXTE_INFORMATIF if mot in texte_lower)
+    if mots_informatifs >= 2:  # Si au moins deux mots indiquent un contexte informatif
+        return False
+    
+    # 4. Vérifier si la phrase commence par des mots typiques d'explication
+    premiers_mots = texte_lower.split()[:3]  # Prendre les 3 premiers mots
+    if any(mot in premiers_mots for mot in ["car", "parce", "puisque", "c'est", "le"]):
+        # Si la phrase commence par ces mots, c'est probablement une explication et non une demande
+        return False
+    
+    # 5. Compteur de mots d'aide
+    compteur_mots_aide = sum(1 for mot in MOTS_AIDE if f" {mot} " in f" {texte_lower} " or 
+                             texte_lower.startswith(f"{mot} ") or texte_lower.endswith(f" {mot}"))
+    
+    # 6. Analyse des formes interrogatives (plus susceptibles d'être des demandes d'aide)
+    est_question = "?" in texte or any(texte_lower.startswith(mot) for mot in 
+                                      ["comment", "pourquoi", "est-ce", "est ce", "quelqu'un", 
+                                       "qui", "quand", "où", "ou"])
+    
+    # Décision finale basée sur plusieurs facteurs
+    if est_question and compteur_mots_aide >= 1:
+        return True
+    elif compteur_mots_aide >= 2:  # Exiger au moins deux mots d'aide distincts si ce n'est pas une question
+        return True
     return False
 
 @bot.event
@@ -78,15 +108,15 @@ async def on_message(message):
         return
     
     if message.channel.id == SALON_SURVEILLE_ID:
-        contenu = message.content.lower()
+        contenu = message.content
         user_id = message.author.id
         
         # Vérifier si c'est une demande d'aide
         if contient_demande_aide(contenu):
             current_time = time.time()
             
-            # Vérifier si l'utilisateur a déjà reçu une réponse dans les 5 dernières minutes
-            if user_id not in last_response_time or (current_time - last_response_time[user_id]) >= 120:  # 300 secondes = 5 minutes
+            # Vérifier si l'utilisateur a déjà reçu une réponse dans les 2 dernières minutes
+            if user_id not in last_response_time or (current_time - last_response_time[user_id]) >= 60:
                 response = "👋 Poste ta question dans <#{0}>, <#{1}> ou <#{2}>".format(
                     LOGICIEL_CHANNEL_ID, MATERIEL_CHANNEL_ID, AUTRES_CHANNEL_ID
                 )
