@@ -116,7 +116,7 @@ async def on_message(message):
             current_time = time.time()
             
             # Vérifier si l'utilisateur a déjà reçu une réponse dans les 2 dernières minutes
-            if user_id not in last_response_time or (current_time - last_response_time[user_id]) >= 60:
+            if user_id not in last_response_time or (current_time - last_response_time[user_id]) >= 120:
                 response = "👋 Poste ta question dans <#{0}>, <#{1}> ou <#{2}>".format(
                     LOGICIEL_CHANNEL_ID, MATERIEL_CHANNEL_ID, AUTRES_CHANNEL_ID
                 )
